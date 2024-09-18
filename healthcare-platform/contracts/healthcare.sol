@@ -48,3 +48,5 @@ contract HealthcarePlatform is ERC20 {
         _transfer(msg.sender, _user, _amount); // Transfer tokens from the sender to the user
     }
 }
+
+
