@@ -1,52 +1,51 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract HealthcarePlatform is ERC20 {
-    // Health record structure
+contract HealthcarePlatform is ERC20, Ownable {
     struct HealthRecord {
-        string dataHash;  // Hash of the health record (e.g., IPFS hash)
-        uint256 timestamp;  // When the record was created
+        string ipfsHash;
+        uint256 timestamp;
     }
 
-    // Mapping from patient addresses to their health records
-    mapping(address => HealthRecord[]) public healthRecords;
+    mapping(address => HealthRecord[]) private patientRecords;
+    mapping(address => mapping(address => bool)) private accessPermissions;
 
-    // Mapping to control access to health records (patient -> (doctor -> permission))
-    mapping(address => mapping(address => bool)) public accessPermissions;
+    event HealthRecordStored(address indexed patient, string ipfsHash);
+    event AccessGranted(address indexed patient, address indexed grantee);
+    event AccessRevoked(address indexed patient, address indexed grantee);
+    event UserRewarded(address indexed user, uint256 amount);
 
-    // Token constructor
     constructor(uint256 initialSupply) ERC20("HealthToken", "HLT") {
-        _mint(msg.sender, initialSupply); // Mint initial tokens to the deployer
+        _mint(msg.sender, initialSupply);
     }
 
-    // Store a new health record
-    function storeHealthRecord(string memory _dataHash) public {
-        HealthRecord memory newRecord = HealthRecord(_dataHash, block.timestamp);
-        healthRecords[msg.sender].push(newRecord);
+    function storeHealthRecord(string memory _ipfsHash) public {
+        HealthRecord memory newRecord = HealthRecord(_ipfsHash, block.timestamp);
+        patientRecords[msg.sender].push(newRecord);
+        emit HealthRecordStored(msg.sender, _ipfsHash);
     }
 
-    // Grant access to a doctor or third party
-    function grantAccess(address _doctor) public {
-        accessPermissions[msg.sender][_doctor] = true;
+    function getHealthRecords() public view returns (HealthRecord[] memory) {
+        require(msg.sender == owner() || accessPermissions[msg.sender][msg.sender], "Unauthorized access");
+        return patientRecords[msg.sender];
     }
 
-    // Revoke access from a doctor or third party
-    function revokeAccess(address _doctor) public {
-        accessPermissions[msg.sender][_doctor] = false;
+    function grantAccess(address _grantee) public {
+        accessPermissions[msg.sender][_grantee] = true;
+        emit AccessGranted(msg.sender, _grantee);
     }
 
-    // Retrieve health records (only accessible by the patient or someone with access)
-    function getHealthRecords(address _patient) public view returns (HealthRecord[] memory) {
-        require(msg.sender == _patient || accessPermissions[_patient][msg.sender], "Access Denied");
-        return healthRecords[_patient];
+    function revokeAccess(address _grantee) public {
+        accessPermissions[msg.sender][_grantee] = false;
+        emit AccessRevoked(msg.sender, _grantee);
     }
 
-    // Reward users with tokens for healthy behaviors
-    function rewardUser(address _user, uint256 _amount) public {
-        _transfer(msg.sender, _user, _amount); // Transfer tokens from the sender to the user
+    function rewardUser(address _user, uint256 _amount) public onlyOwner {
+        require(balanceOf(address(this)) >= _amount, "Insufficient balance for reward");
+        _transfer(address(this), _user, _amount);
+        emit UserRewarded(_user, _amount);
     }
 }
-
-

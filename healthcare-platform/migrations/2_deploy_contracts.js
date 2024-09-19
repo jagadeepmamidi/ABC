@@ -1,6 +1,6 @@
 const HealthcarePlatform = artifacts.require("HealthcarePlatform");
 
 module.exports = function (deployer) {
-    deployer.deploy(HealthcarePlatform, 1000000); // Initial supply of 1,000,000 tokens
+  const initialSupply = web3.utils.toWei("1000000", "ether"); // 1 million tokens
+  deployer.deploy(HealthcarePlatform, initialSupply);
 };
-    
